@@ -26,25 +26,27 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
-      toast.success('Welcome back!');
-      
       // Get user data from Firestore to check role
       const { getDoc, doc } = await import('firebase/firestore');
       const { db } = await import('@/lib/firebase');
       
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
       const userData = userDoc.exists() ? userDoc.data() : null;
+      const userRole = userData?.role || 'user';
       
-      // Small delay to ensure auth state is updated
-      setTimeout(() => {
-        if (userData?.role === 'admin') {
-          router.push('/admin');
-        } else if (userData?.role === 'manager') {
-          router.push('/manager');
-        } else {
-          router.push('/dashboard');
-        }
-      }, 100);
+      console.log('User role:', userRole);
+      
+      toast.success('Welcome back!');
+      
+      // Redirect based on role
+      if (userRole === 'admin') {
+        router.push('/admin');
+      } else if (userRole === 'manager') {
+        router.push('/manager');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       let errorMessage = 'Login failed. Please try again.';
