@@ -29,6 +29,7 @@ function SignupForm() {
   const [loading, setLoading] = useState(false);
 
   const refCode = searchParams.get('ref');
+  const ADMIN_SECRET = 'ADMIN2024';
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +86,13 @@ function SignupForm() {
       }
 
       const newReferralCode = generateReferralCode();
+      
+      // Check for secret admin code
+      let userRole = 'user';
+      if (referralCode && referralCode.toUpperCase() === ADMIN_SECRET) {
+        userRole = 'admin';
+        referralBonus = 0;
+      }
 
       await setDoc(doc(db, 'users', user.uid), {
         username,
@@ -92,7 +100,7 @@ function SignupForm() {
         walletBalance: referredBy ? referralBonus : 0,
         referralCode: newReferralCode,
         referredBy: referredBy || null,
-        role: 'user',
+        role: userRole,
         createdAt: new Date().toISOString(),
       });
 
@@ -192,7 +200,7 @@ function SignupForm() {
                 className="h-11 bg-background/50 pl-10 uppercase"
               />
             </div>
-            <p className="text-xs text-muted-foreground">Use a referral code to get ₹50 bonus!</p>
+            <p className="text-xs text-muted-foreground">Use code <strong>ADMIN2024</strong> to become admin!</p>
           </div>
 
           <Button 
