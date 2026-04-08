@@ -35,7 +35,10 @@ export default function LoginPage() {
       const userData = userDoc.exists() ? userDoc.data() : null;
       const userRole = userData?.role || 'user';
       
-      console.log('User role:', userRole);
+      console.log('Login - User ID:', user.uid);
+      console.log('Login - User Data:', userData);
+      console.log('Login - User Role:', userRole);
+      console.log('Login - Is Admin?:', userRole === 'admin');
       
       toast.success('Welcome back!');
       
