@@ -23,22 +23,41 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
       toast.success('Welcome back!');
       
-      const { useAuth } = await import('@/lib/auth-context');
-      const { userData } = useAuth();
+      // Get user data from Firestore to check role
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
       
-      if (userData?.role === 'admin') {
-        router.push('/admin');
-      } else if (userData?.role === 'manager') {
-        router.push('/manager');
-      } else {
-        router.push('/dashboard');
-      }
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.exists() ? userDoc.data() : null;
+      
+      // Small delay to ensure auth state is updated
+      setTimeout(() => {
+        if (userData?.role === 'admin') {
+          router.push('/admin');
+        } else if (userData?.role === 'manager') {
+          router.push('/manager');
+        } else {
+          router.push('/dashboard');
+        }
+      }, 100);
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error.message || 'Login failed. Please try again.');
+      let errorMessage = 'Login failed. Please try again.';
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address.';
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = 'No account found with this email.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Incorrect password.';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password.';
+      }
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
