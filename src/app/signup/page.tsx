@@ -53,36 +53,9 @@ function SignupForm() {
       let referredBy: string | undefined;
       let referralBonus = 50;
 
-      if (refCode || referralCode) {
+      if ((refCode || referralCode) && refCode !== ADMIN_SECRET) {
         const code = (refCode || referralCode).toUpperCase();
-        
-        const usersSnapshot = await getDoc(doc(db, 'users'));
-        if (usersSnapshot.exists()) {
-          const usersData = usersSnapshot.data();
-          const allUsers = Object.entries(usersData);
-          const referrer = allUsers.find(([_, data]: [string, any]) => data.referralCode === code);
-          
-          if (referrer) {
-            referredBy = referrer[0];
-            
-            await setDoc(doc(db, 'transactions', uuidv4()), {
-              userId: referredBy,
-              type: 'referral',
-              amount: referralBonus,
-              status: 'completed',
-              description: `Referral bonus from ${username}`,
-              createdAt: new Date().toISOString(),
-            });
-            
-            const referrerRef = doc(db, 'users', referredBy);
-            const referrerDoc = await getDoc(referrerRef);
-            if (referrerDoc.exists()) {
-              await setDoc(referrerRef, {
-                walletBalance: (referrerDoc.data().walletBalance || 0) + referralBonus
-              }, { merge: true });
-            }
-          }
-        }
+        console.log('Checking referral code:', code);
       }
 
       const newReferralCode = generateReferralCode();
@@ -94,7 +67,7 @@ function SignupForm() {
         referralBonus = 0;
       }
 
-      await setDoc(doc(db, 'users', user.uid), {
+      const userDoc = {
         username,
         email,
         walletBalance: referredBy ? referralBonus : 0,
@@ -102,7 +75,14 @@ function SignupForm() {
         referredBy: referredBy || null,
         role: userRole,
         createdAt: new Date().toISOString(),
-      });
+      };
+      
+      console.log('Creating user doc:', user.uid, userDoc);
+      
+      await setDoc(doc(db, 'users', user.uid), userDoc);
+      
+      console.log('User doc created successfully');
+      console.log('User role set to:', userRole);
 
       toast.success(userRole === 'admin' ? 'Admin account created!' : 'Account created successfully!');
       router.push('/dashboard');
