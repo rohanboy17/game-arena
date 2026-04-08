@@ -33,7 +33,11 @@ export default function LoginPage() {
       const userRef = doc(db, 'users', user.uid);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.exists() ? userDoc.data() : null;
-      const userRole = userData?.role || 'user';
+      // If no role stored, check email for admin (temporary for testing)
+      let userRole = userData?.role || 'user';
+      if (!userData?.role && email.toLowerCase().includes('admin')) {
+        userRole = 'admin';
+      }
       
       console.log('Login - User ID:', user.uid);
       console.log('Login - User Data:', userData);

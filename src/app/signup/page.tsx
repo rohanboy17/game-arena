@@ -104,7 +104,7 @@ function SignupForm() {
         createdAt: new Date().toISOString(),
       });
 
-      toast.success('Account created successfully!');
+      toast.success(userRole === 'admin' ? 'Admin account created!' : 'Account created successfully!');
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Signup error:', error);
