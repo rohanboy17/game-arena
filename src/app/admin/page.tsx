@@ -61,16 +61,28 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [accessDenied, setAccessDenied] = useState(false);
 
+  // Check auth and load data
   useEffect(() => {
-    if (!authLoading && !loading) {
-      if (!user || !isAdmin) {
-        router.push('/');
-      } else {
-        loadData();
-      }
+    // Wait for auth to finish loading
+    if (authLoading) return;
+    
+    // Not logged in
+    if (!user) {
+      router.push('/login');
+      return;
     }
-  }, [user, authLoading, isAdmin, router, loading]);
+    
+    // Check if admin - use userData from context
+    if (!userData || userData.role !== 'admin') {
+      setAccessDenied(true);
+      return;
+    }
+    
+    // Load admin data
+    loadData();
+  }, [user, userData, authLoading]);
 
   const loadData = async () => {
     try {
@@ -192,18 +204,41 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading admin panel...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !isAdmin) return null;
+  if (accessDenied) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">You are not an admin</p>
+          <Link href="/dashboard">
+            <Button>Go to Dashboard</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading admin data...</p>
+        </div>
+      </div>
+    );
+  }
 
   const pendingDeposits = deposits.filter(d => d.status === 'pending');
   const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending');
