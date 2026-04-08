@@ -1,163 +1,113 @@
 # GameArena - Skill-Based eSports Tournament Platform
 
-A complete MVP web platform for skill-based eSports tournaments with a 100% FREE setup.
+A premium web platform for skill-based eSports tournaments with role-based workflow and anti-cheat system.
 
 ## Features
 
-- **User Authentication**: Email/password signup and login via Firebase Auth
-- **Wallet System**: Manual deposit/withdraw with UPI payment
-- **Tournament System**: Create and join tournaments
-- **Match Flow**: Room details visible 10 minutes before match
-- **Result Submission**: Anti-cheat screenshot upload with kills/rank
-- **Admin Panel**: Full control over users, tournaments, deposits, withdrawals, and results
-- **Referral System**: Earn bonus when using referral codes
+- **Role-Based System**: User → Manager → Admin workflow
+- **Anti-Cheat Verification**: 
+  1. User submits result → status: pending
+  2. Manager reviews → status: manager_approved
+  3. Admin final review → status: approved (credits winnings)
+- **User Roles**:
+  - User: Join tournaments, submit results, manage wallet
+  - Manager: Verify match results for assigned tournaments
+  - Admin: Full platform control
+- **Wallet System**: Manual UPI deposit/withdrawal
+- **Tournament System**: Create, join, and manage tournaments
+- **Referral System**: Earn bonus with referral codes
 
 ## Tech Stack
 
 - **Frontend**: Next.js 16, Tailwind CSS
-- **Backend**: Next.js API Routes
 - **Database**: Firebase Firestore
 - **Storage**: Firebase Storage
 - **Authentication**: Firebase Auth
+- **Deployment**: Vercel (free)
 
-## Getting Started
+## Quick Deploy
 
-### Prerequisites
+### Deploy to Vercel
 
-- Node.js 18+
-- Firebase Project (Free tier)
+1. Push code to GitHub
+2. Go to [Vercel](https://vercel.com/)
+3. Import repository
+4. Add environment variables:
+   ```
+   NEXT_PUBLIC_FIREBASE_API_KEY
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+   NEXT_PUBLIC_FIREBASE_PROJECT_ID
+   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+   NEXT_PUBLIC_FIREBASE_APP_ID
+   ```
+5. Deploy!
 
-### 1. Firebase Setup
+## Firebase Setup
 
-1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Create a new project
-3. Enable **Authentication** (Email/Password provider)
-4. Enable **Firestore Database**
-5. Enable **Storage**
-6. Copy your Firebase config credentials
+1. Create project at [Firebase Console](https://console.firebase.google.com/)
+2. Enable **Authentication** (Email/Password)
+3. Enable **Firestore Database**
+4. Enable **Storage**
 
-### 2. Environment Setup
+## Environment Variables
 
-Create a `.env.local` file in the project root:
+Create `.env.local`:
 
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-### 3. Install Dependencies
+## Setting Roles
 
-```bash
-npm install
-```
+In Firestore, add field to user document:
+- `role: "user"` - Regular user
+- `role: "manager"` - Tournament manager
+- `role: "admin"` - Platform admin
 
-### 4. Run Development Server
+For manager, assign tournament with `assignedManagerId: user_id`.
 
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-### 5. Admin Setup
-
-To make a user an admin:
-
-1. Open Firestore Console
-2. Find the user document
-3. Add field `isAdmin: true`
-
-## Project Structure
-
-```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── admin/             # Admin panel pages
-│   ├── dashboard/         # User dashboard
-│   ├── tournaments/       # Tournament pages
-│   ├── wallet/           # Wallet management
-│   ├── login/            # Login page
-│   ├── signup/           # Signup page
-│   ├── terms/            # Terms & Conditions
-│   ├── privacy/          # Privacy Policy
-│   └── page.tsx         # Home page (tournament list)
-├── components/            # Reusable components
-├── lib/                   # Firebase config, utilities
-└── types/                 # TypeScript interfaces
-```
-
-## Firebase Firestore Rules
+## Firestore Rules
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read their own data
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId;
+      allow read, write: if request.auth != null;
     }
-    
-    // Tournament rules
     match /tournaments/{tournamentId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
-    // Results rules
     match /results/{resultId} {
       allow read, create: if request.auth != null;
-      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['manager', 'admin'];
     }
-    
-    // Wallet request rules
-    match /depositRequests/{requestId}, /withdrawRequests/{requestId} {
+    match /deposits/{depositId}, /withdrawals/{withdrawalId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
-      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-    }
-    
-    // Transactions rules
-    match /transactions/{transactionId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow update: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
 ```
 
-## Firebase Storage Rules
+## Development
 
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-  }
-}
+```bash
+npm install
+npm run dev
 ```
-
-## Deployment
-
-### Deploy to Vercel (Free)
-
-1. Push your code to GitHub
-2. Go to [Vercel](https://vercel.com/)
-3. Import your repository
-4. Add the environment variables in Vercel settings
-5. Deploy!
 
 ## Legal Disclaimer
 
-This platform hosts skill-based eSports tournaments and is not affiliated with any game publisher. No gambling is involved. All tournaments are based on skill and fair play.
+This platform hosts skill-based eSports tournaments and is not affiliated with any game publisher.
 
 ## License
 

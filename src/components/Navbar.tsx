@@ -3,108 +3,147 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { Button } from '@/components/ui/button';
+import { 
+  Trophy, 
+  Wallet, 
+  Users, 
+  Gamepad2, 
+  LogOut,
+  Menu,
+  X
+} from 'lucide-react';
+import { useState } from 'react';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { user, userData } = useAuth();
+  const { user, userData, signOut } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path + '/');
+  const isActive = (path: string) => {
+    if (path === '/') return pathname === '/';
+    return pathname.startsWith(path);
+  };
+
+  const NavLink = ({ href, children, icon: Icon }: { href: string; children: React.ReactNode; icon?: any }) => (
+    <Link
+      href={href}
+      className={`flex items-center gap-2 text-sm font-medium transition-all ${
+        isActive(href) 
+          ? 'text-primary' 
+          : 'text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      {Icon && <Icon className="w-4 h-4" />}
+      {children}
+    </Link>
+  );
+
+  const navLinks = [
+    { href: '/', label: 'Home', icon: Trophy },
+  ];
+
+  if (user) {
+    navLinks.push({ href: '/tournaments', label: 'Tournaments', icon: Gamepad2 });
+    navLinks.push({ href: '/dashboard', label: 'Dashboard', icon: Gamepad2 });
+    navLinks.push({ href: '/wallet', label: 'Wallet', icon: Wallet });
+  }
+
+  if (userData?.role === 'manager') {
+    navLinks.push({ href: '/manager', label: 'Manager', icon: Users });
+  }
+
+  if (userData?.role === 'admin') {
+    navLinks.push({ href: '/admin', label: 'Admin', icon: Users });
+  }
 
   return (
-    <nav className="bg-card border-b border-border sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg gaming-gradient flex items-center justify-center">
-              <span className="text-white font-bold text-xl">G</span>
-            </div>
-            <span className="text-xl font-bold text-foreground">GameArena</span>
-          </Link>
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-xl">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-purple-600">
+            <Trophy className="h-5 w-5 text-white" />
+          </div>
+          <span className="text-xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+            GameArena
+          </span>
+        </Link>
 
-          <div className="hidden md:flex items-center gap-6">
+        <nav className="hidden md:flex items-center gap-6">
+          {navLinks.map((link) => (
+            <NavLink key={link.href} href={link.href} icon={link.icon}>
+              {link.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="hidden md:flex items-center gap-3">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-full bg-secondary/10 px-3 py-1.5">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center text-sm font-bold text-white">
+                  {userData?.username?.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium">₹{userData?.walletBalance?.toFixed(0) || 0}</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={signOut}>
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Link href="/login">
+                <Button variant="ghost">Login</Button>
+              </Link>
+              <Link href="/signup">
+                <Button className="bg-gradient-to-r from-primary to-purple-600 hover:opacity-90">Sign Up</Button>
+              </Link>
+            </>
+          )}
+        </div>
+
+        <button
+          className="md:hidden p-2"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+        >
+          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+      </div>
+
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t bg-background/95 backdrop-blur-xl p-4 space-y-4">
+          {navLinks.map((link) => (
             <Link
-              href="/"
-              className={`text-sm font-medium transition-colors ${
-                isActive('/') && !isActive('/dashboard') && !isActive('/admin')
-                  ? 'text-primary'
-                  : 'text-muted hover:text-foreground'
+              key={link.href}
+              href={link.href}
+              className={`flex items-center gap-2 text-sm font-medium py-2 ${
+                isActive(link.href) ? 'text-primary' : 'text-muted-foreground'
               }`}
+              onClick={() => setMobileMenuOpen(false)}
             >
-              Tournaments
+              {link.icon && <link.icon className="w-4 h-4" />}
+              {link.label}
             </Link>
-            
-            {user && (
+          ))}
+          <div className="flex gap-2 pt-2 border-t">
+            {user ? (
+              <Button variant="outline" className="flex-1" onClick={signOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            ) : (
               <>
-                <Link
-                  href="/dashboard"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/dashboard')
-                      ? 'text-primary'
-                      : 'text-muted hover:text-foreground'
-                  }`}
-                >
-                  Dashboard
+                <Link href="/login" className="flex-1">
+                  <Button variant="outline" className="w-full">Login</Button>
                 </Link>
-                <Link
-                  href="/wallet"
-                  className={`text-sm font-medium transition-colors ${
-                    isActive('/wallet')
-                      ? 'text-primary'
-                      : 'text-muted hover:text-foreground'
-                  }`}
-                >
-                  Wallet
+                <Link href="/signup" className="flex-1">
+                  <Button className="w-full bg-gradient-to-r from-primary to-purple-600">Sign Up</Button>
                 </Link>
               </>
             )}
-
-            {userData?.isAdmin && (
-              <Link
-                href="/admin"
-                className={`text-sm font-medium transition-colors ${
-                  isActive('/admin')
-                    ? 'text-primary'
-                    : 'text-muted hover:text-foreground'
-                }`}
-              >
-                Admin
-              </Link>
-            )}
-          </div>
-
-          <div className="flex items-center gap-4">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <div className="hidden sm:block text-right">
-                  <p className="text-sm font-medium text-foreground">{userData?.username}</p>
-                  <p className="text-xs text-muted">₹{userData?.walletBalance?.toFixed(2) || '0.00'}</p>
-                </div>
-                <Link
-                  href="/dashboard"
-                  className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold"
-                >
-                  {userData?.username?.charAt(0).toUpperCase() || 'U'}
-                </Link>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/login"
-                  className="text-sm font-medium text-muted hover:text-foreground transition-colors"
-                >
-                  Login
-                </Link>
-                <Link
-                  href="/signup"
-                  className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
           </div>
         </div>
-      </div>
-    </nav>
+      )}
+    </header>
   );
 }

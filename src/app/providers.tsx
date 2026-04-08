@@ -1,14 +1,13 @@
 'use client';
 
 import { AuthProvider } from '@/lib/auth-context';
-import { NotificationProvider } from '@/lib/notification-context';
+import { Toaster } from '@/components/ui/sonner';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <NotificationProvider>
-        {children}
-      </NotificationProvider>
+      {children}
+      <Toaster position="top-right" />
     </AuthProvider>
   );
 }

@@ -6,20 +6,36 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { Tournament, Result, Transaction } from '@/types';
 import { getDocuments, COLLECTIONS } from '@/lib/db';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Wallet, 
+  Trophy, 
+  Users, 
+  TrendingUp, 
+  ArrowRight, 
+  Gamepad2,
+  CreditCard,
+  Gift,
+  Clock,
+  CheckCircle,
+  XCircle
+} from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, userData, loading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const [myTournaments, setMyTournaments] = useState<Tournament[]>([]);
   const [myResults, setMyResults] = useState<Result[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [activeTab, setActiveTab] = useState<'tournaments' | 'results' | 'transactions'>('tournaments');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
-  }, [user, loading, router]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (user) {
@@ -33,248 +49,271 @@ export default function DashboardPage() {
       const joined = tournaments.filter((t) => t.joinedUsers?.includes(user!.uid));
       setMyTournaments(joined);
 
-      const results = await getDocuments<Result>(
-        COLLECTIONS.RESULTS,
-      );
-      setMyResults(results.filter((r) => r.userId === user?.uid));
+      const allResults = await getDocuments<Result>(COLLECTIONS.RESULTS);
+      setMyResults(allResults.filter((r) => r.userId === user?.uid));
 
-      const txs = await getDocuments<Transaction>(
-        COLLECTIONS.TRANSACTIONS,
-      );
-      setTransactions(txs.filter((t) => t.userId === user?.uid));
+      const txs = await getDocuments<Transaction>(COLLECTIONS.TRANSACTIONS);
+      setTransactions(txs.filter((t) => t.userId === user?.uid).slice(0, 10));
     } catch (error) {
       console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  if (!user || !userData) {
-    return null;
-  }
+  if (!user || !userData) return null;
+
+  const upcomingMatches = myTournaments.filter(t => t.status === 'upcoming');
+  const completedTournaments = myTournaments.filter(t => t.status === 'completed');
+  const pendingResults = myResults.filter(r => r.status === 'pending');
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="bg-card border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-screen bg-gradient-to-b from-background via-purple-950/5 to-background">
+      {/* Header */}
+      <div className="border-b bg-card/50 backdrop-blur-xl">
+        <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-2xl">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-purple-600 text-2xl font-bold text-white">
                 {userData.username.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">{userData.username}</h1>
-                <p className="text-muted">{userData.email}</p>
+                <h1 className="text-2xl font-bold">{userData.username}</h1>
+                <p className="text-muted-foreground">{userData.email}</p>
+                <Badge className="mt-1 bg-primary/20 text-primary capitalize">{userData.role}</Badge>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4">
-              <div className="bg-background rounded-lg p-4 border border-border">
-                <p className="text-xs text-muted uppercase tracking-wider">Wallet Balance</p>
-                <p className="text-2xl font-bold text-primary">₹{userData.walletBalance.toFixed(2)}</p>
-              </div>
-              <div className="bg-background rounded-lg p-4 border border-border">
-                <p className="text-xs text-muted uppercase tracking-wider">Referral Code</p>
-                <p className="text-lg font-bold text-accent">{userData.referralCode}</p>
-              </div>
+              <Card className="border-border/50 bg-gradient-to-br from-primary/20 to-purple-600/20">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Wallet className="h-8 w-8 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Wallet Balance</p>
+                    <p className="text-2xl font-bold text-primary">₹{userData.walletBalance.toFixed(2)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="border-border/50">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Gift className="h-8 w-8 text-accent" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Referral Code</p>
+                    <p className="text-lg font-bold text-accent">{userData.referralCode}</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
-          <div className="flex gap-4 mt-6">
-            <Link
-              href="/wallet"
-              className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors"
-            >
-              Add Money
+          <div className="flex flex-wrap gap-3 mt-6">
+            <Link href="/wallet?tab=deposit">
+              <Button className="bg-gradient-to-r from-primary to-purple-600">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Add Money
+              </Button>
             </Link>
-            <Link
-              href="/wallet?tab=withdraw"
-              className="px-4 py-2 bg-secondary text-white rounded-lg font-medium hover:opacity-90 transition-colors"
-            >
-              Withdraw
+            <Link href="/wallet?tab=withdraw">
+              <Button variant="outline">
+                <Wallet className="mr-2 h-4 w-4" />
+                Withdraw
+              </Button>
+            </Link>
+            <Link href="/tournaments">
+              <Button variant="outline">
+                <Gamepad2 className="mr-2 h-4 w-4" />
+                Join Tournament
+              </Button>
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-2 mb-6">
-          {(['tournaments', 'results', 'transactions'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === tab
-                  ? 'bg-primary text-white'
-                  : 'bg-card text-muted hover:text-foreground'
-              }`}
-            >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'tournaments' && (
-          <div>
-            <h2 className="text-xl font-bold text-foreground mb-4">My Tournaments</h2>
-            {myTournaments.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-xl border border-border">
-                <p className="text-muted">You haven't joined any tournaments yet.</p>
-                <Link href="/" className="text-primary hover:underline mt-2 inline-block">
-                  Browse Tournaments
+      {/* Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Left Column */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Upcoming Matches */}
+            <Card className="border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Upcoming Matches
+                </CardTitle>
+                <Link href="/tournaments">
+                  <Button variant="ghost" size="sm">View All</Button>
                 </Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {myTournaments.map((tournament) => (
-                  <div key={tournament.id} className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-foreground">{tournament.gameName}</h3>
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          tournament.status === 'live'
-                            ? 'bg-red-600 text-white'
-                            : tournament.status === 'completed'
-                            ? 'bg-gray-600 text-white'
-                            : 'bg-primary/20 text-primary'
-                        }`}
-                      >
-                        {tournament.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted mb-3">
-                      Entry: ₹{tournament.entryFee} | Match: {new Date(tournament.matchTime).toLocaleString()}
-                    </p>
-                    <div className="flex gap-2">
-                      <Link
-                        href={`/tournaments/${tournament.id}`}
-                        className="flex-1 text-center py-2 bg-primary/20 text-primary rounded-lg text-sm font-medium hover:bg-primary hover:text-white transition-colors"
-                      >
-                        View Details
-                      </Link>
-                      {tournament.status === 'completed' && (
-                        <Link
-                          href={`/tournaments/${tournament.id}/submit-result`}
-                          className="flex-1 text-center py-2 bg-accent/20 text-accent rounded-lg text-sm font-medium hover:bg-accent hover:text-white transition-colors"
-                        >
-                          Submit Result
-                        </Link>
-                      )}
-                    </div>
+              </CardHeader>
+              <CardContent>
+                {upcomingMatches.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Gamepad2 className="mx-auto h-10 w-10 text-muted-foreground" />
+                    <p className="mt-2 text-muted-foreground">No upcoming matches</p>
+                    <Link href="/tournaments">
+                      <Button className="mt-4">Join a Tournament</Button>
+                    </Link>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'results' && (
-          <div>
-            <h2 className="text-xl font-bold text-foreground mb-4">My Results</h2>
-            {myResults.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-xl border border-border">
-                <p className="text-muted">No results submitted yet.</p>
-              </div>
-            ) : (
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-background">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Tournament</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Kills</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Rank</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myResults.map((result) => (
-                      <tr key={result.id} className="border-t border-border">
-                        <td className="px-4 py-3 text-foreground">{result.tournamentId}</td>
-                        <td className="px-4 py-3 text-foreground">{result.kills}</td>
-                        <td className="px-4 py-3 text-foreground">#{result.rank}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              result.status === 'approved'
-                                ? 'bg-green-600/20 text-green-400'
-                                : result.status === 'rejected'
-                                ? 'bg-red-600/20 text-red-400'
-                                : 'bg-yellow-600/20 text-yellow-400'
-                            }`}
-                          >
-                            {result.status.toUpperCase()}
-                          </span>
-                        </td>
-                      </tr>
+                ) : (
+                  <div className="space-y-3">
+                    {upcomingMatches.slice(0, 3).map((tournament) => (
+                      <div 
+                        key={tournament.id}
+                        className="flex items-center justify-between rounded-lg bg-background p-3 border border-border/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center text-xl">
+                            🎮
+                          </div>
+                          <div>
+                            <p className="font-medium">{tournament.gameName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(tournament.matchTime).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <Link href={`/tournaments/${tournament.id}`}>
+                          <Button size="sm">View</Button>
+                        </Link>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-        {activeTab === 'transactions' && (
-          <div>
-            <h2 className="text-xl font-bold text-foreground mb-4">Transactions</h2>
-            {transactions.length === 0 ? (
-              <div className="text-center py-12 bg-card rounded-xl border border-border">
-                <p className="text-muted">No transactions yet.</p>
-              </div>
-            ) : (
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-background">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Amount</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Description</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-muted uppercase">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => (
-                      <tr key={tx.id} className="border-t border-border">
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 text-xs rounded-full bg-primary/20 text-primary capitalize">
-                            {tx.type}
-                          </span>
-                        </td>
-                        <td className={`px-4 py-3 font-medium ${tx.type === 'withdrawal' || tx.type === 'entry' ? 'text-red-400' : 'text-green-400'}`}>
+            {/* Recent Results */}
+            <Card className="border-border/50">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  My Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {myResults.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Trophy className="mx-auto h-10 w-10 text-muted-foreground" />
+                    <p className="mt-2 text-muted-foreground">No results yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {myResults.slice(0, 5).map((result) => (
+                      <div 
+                        key={result.id}
+                        className="flex items-center justify-between rounded-lg bg-background p-3 border border-border/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
+                            result.status === 'approved' ? 'bg-green-500/20' :
+                            result.status === 'rejected' ? 'bg-red-500/20' :
+                            'bg-yellow-500/20'
+                          }`}>
+                            {result.status === 'approved' ? <CheckCircle className="h-5 w-5 text-green-500" /> :
+                             result.status === 'rejected' ? <XCircle className="h-5 w-5 text-red-500" /> :
+                             <Clock className="h-5 w-5 text-yellow-500" />}
+                          </div>
+                          <div>
+                            <p className="font-medium">Rank #{result.rank} • {result.kills} kills</p>
+                            <p className="text-sm text-muted-foreground capitalize">
+                              {result.status === 'manager_approved' ? 'Under Review' : result.status}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-6">
+            {/* Quick Stats */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5 text-primary" />
+                  Stats
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Tournaments Joined</span>
+                  <span className="font-bold">{myTournaments.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Completed</span>
+                  <span className="font-bold">{completedTournaments.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Results Pending</span>
+                  <span className="font-bold text-yellow-500">{pendingResults.length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Winnings</span>
+                  <span className="font-bold text-primary">₹{userData.walletBalance > 100 ? (userData.walletBalance - 50).toFixed(0) : 0}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recent Transactions */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Recent Transactions
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {transactions.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-4">No transactions</p>
+                ) : (
+                  <div className="space-y-2">
+                    {transactions.slice(0, 5).map((tx) => (
+                      <div key={tx.id} className="flex items-center justify-between text-sm">
+                        <span className="capitalize text-muted-foreground">{tx.type}</span>
+                        <span className={`font-medium ${
+                          tx.type === 'withdrawal' || tx.type === 'entry' ? 'text-red-400' : 'text-green-400'
+                        }`}>
                           {tx.type === 'withdrawal' || tx.type === 'entry' ? '-' : '+'}₹{tx.amount}
-                        </td>
-                        <td className="px-4 py-3 text-foreground text-sm">{tx.description}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              tx.status === 'completed'
-                                ? 'bg-green-600/20 text-green-400'
-                                : tx.status === 'failed'
-                                ? 'bg-red-600/20 text-red-400'
-                                : 'bg-yellow-600/20 text-yellow-400'
-                            }`}
-                          >
-                            {tx.status.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted text-sm">
-                          {new Date(tx.createdAt).toLocaleDateString()}
-                        </td>
-                      </tr>
+                        </span>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Referral */}
+            <Card className="border-border/50 bg-gradient-to-br from-accent/10 to-yellow-600/10">
+              <CardContent className="p-4 text-center">
+                <Gift className="mx-auto h-8 w-8 text-accent" />
+                <p className="mt-2 font-bold">Invite Friends</p>
+                <p className="text-sm text-muted-foreground">Share your code and earn ₹50</p>
+                <div className="mt-3 rounded-lg bg-background p-2 font-mono text-lg font-bold text-accent">
+                  {userData.referralCode}
+                </div>
+                <Button size="sm" className="mt-3" onClick={() => navigator.clipboard.writeText(userData.referralCode)}>
+                  Copy Code
+                </Button>
+              </CardContent>
+            </Card>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

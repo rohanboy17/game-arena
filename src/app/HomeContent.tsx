@@ -1,77 +1,79 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Tournament } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tournament, User } from '@/types';
 import { getDocuments, COLLECTIONS } from '@/lib/db';
+import { 
+  Trophy, 
+  Medal, 
+  Users, 
+  Gamepad2, 
+  ArrowRight, 
+  Zap,
+  Crown,
+  Target,
+  Wallet
+} from 'lucide-react';
 
 const gameIcons: Record<string, string> = {
   'BGMI': '🎮',
   'Free Fire': '🔥',
   'PUBG': '💀',
   'Valorant': '⚔️',
-  'Default': '🏆',
+  'Default': '🎯',
 };
 
-const gameColors: Record<string, string> = {
-  'BGMI': 'from-green-600 to-emerald-800',
-  'Free Fire': 'from-orange-600 to-red-800',
-  'PUBG': 'from-blue-600 to-indigo-800',
-  'Valorant': 'from-pink-600 to-rose-800',
-  'Default': 'from-purple-600 to-indigo-800',
+const gameGradients: Record<string, string> = {
+  'BGMI': 'from-green-500 to-emerald-700',
+  'Free Fire': 'from-orange-500 to-red-700',
+  'PUBG': 'from-blue-500 to-indigo-700',
+  'Valorant': 'from-pink-500 to-rose-700',
+  'Default': 'from-purple-500 to-indigo-700',
 };
 
-let cachedTournaments: Tournament[] | null = null;
+const howItWorks = [
+  {
+    icon: Gamepad2,
+    title: 'Join a Tournament',
+    desc: 'Browse available tournaments and join with your entry fee'
+  },
+  {
+    icon: Target,
+    title: 'Play & Submit',
+    desc: 'Compete in the match and submit your result with screenshot'
+  },
+  {
+    icon: Trophy,
+    title: 'Win Rewards',
+    desc: 'Get verified and win real cash directly to your wallet'
+  }
+];
 
 export default function HomeContent() {
-  const [tournaments, setTournaments] = useState<Tournament[]>(cachedTournaments || []);
-  const [loading, setLoading] = useState(!cachedTournaments);
-  const [filter, setFilter] = useState<'all' | 'upcoming' | 'live'>('all');
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    loadData();
   }, []);
 
-  const loadTournaments = useCallback(async () => {
-    if (cachedTournaments) {
-      setTournaments(cachedTournaments);
-      setLoading(false);
-      return;
-    }
-
+  const loadData = async () => {
     try {
       const data = await getDocuments<Tournament>(COLLECTIONS.TOURNAMENTS);
-      const sorted = data.sort((a, b) => new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime());
-      cachedTournaments = sorted;
-      setTournaments(sorted);
+      setTournaments(data.filter(t => t.status !== 'completed').sort((a, b) => 
+        new Date(a.matchTime).getTime() - new Date(b.matchTime).getTime()
+      ).slice(0, 6));
     } catch (error) {
-      console.error('Error loading tournaments:', error);
+      console.error('Error:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    loadTournaments();
-  }, [loadTournaments]);
-
-  const filteredTournaments = tournaments.filter((t) => {
-    if (filter === 'all') return true;
-    return t.status === filter;
-  });
-
-  const getGameIcon = (gameName: string) => gameIcons[gameName] || gameIcons['Default'];
-  const getGameGradient = (gameName: string) => gameColors[gameName] || gameColors['Default'];
-
-  const getStatusBadge = (status: string) => {
-    if (status === 'live') {
-      return <span className="px-3 py-1 text-xs font-bold rounded-full bg-red-600 text-white animate-pulse">LIVE</span>;
-    }
-    if (status === 'completed') {
-      return <span className="px-3 py-1 text-xs font-bold rounded-full bg-gray-600 text-white">COMPLETED</span>;
-    }
-    return <span className="px-3 py-1 text-xs font-bold rounded-full bg-primary/20 text-primary">UPCOMING</span>;
   };
 
   const formatTimeLeft = (matchTime: string) => {
@@ -86,115 +88,245 @@ export default function HomeContent() {
     return `${hours}h ${minutes}m`;
   };
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="gaming-gradient py-16 px-4">
-          <div className="max-w-7xl mx-auto text-center">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Compete & Win</h1>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getStatusBadge = (status: string) => {
+    if (status === 'live') {
+      return <Badge className="bg-red-500 animate-pulse">LIVE</Badge>;
+    }
+    return <Badge className="bg-primary/20 text-primary">UPCOMING</Badge>;
+  };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-muted">Loading tournaments...</p>
-        </div>
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="gaming-gradient py-12 md:py-16 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-white mb-3">Compete & Win Real Rewards</h1>
-          <p className="text-lg md:text-xl text-white/80 mb-6">Join skill-based eSports tournaments</p>
-          <Link href="/signup" className="inline-block px-6 py-2.5 bg-white text-primary font-bold rounded-lg hover:bg-gray-100 transition-colors">
-            Get Started
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <h2 className="text-xl md:text-2xl font-bold text-foreground">Tournaments</h2>
-          <div className="flex gap-2">
-            {(['all', 'upcoming', 'live'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  filter === f ? 'bg-primary text-white' : 'bg-card text-muted hover:text-foreground'
-                }`}
-              >
-                {f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-background via-purple-950/20 to-background">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-500/20 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMtOS45NCAwLTE4IDguMDYtMTggMThzOC4wNiAxOCAxOCAxOCAxOC04LjA2IDE4LTE4LTguMDYtMTgtMTgtMTh6bTAgMzBjLTcuNzIgMC00LTEyLjI4LTQtMTJzNi4yOC0yMCAxNC0yMCAxNCA2LjI4IDE0IDEyLTYuMjggMjAtMTQgMjAtMTQtNi4yOC0yMC0xNC0yMHoiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iLjAyIi8+PC9nPjwvc3ZnPg==')] opacity-30" />
+        
+        <div className="container relative mx-auto px-4 py-20 md:py-32">
+          <div className="mx-auto max-w-3xl text-center">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm text-primary">
+              <Zap className="h-4 w-4" />
+              <span>Win Real Cash Daily</span>
+            </div>
+            
+            <h1 className="mb-6 text-4xl font-bold leading-tight md:text-6xl lg:text-7xl">
+              <span className="bg-gradient-to-r from-white via-white to-purple-300 bg-clip-text text-transparent">
+                Play. Compete.
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
+                Win Real Cash.
+              </span>
+            </h1>
+            
+            <p className="mb-8 text-lg text-muted-foreground md:text-xl">
+              Join skill-based eSports tournaments. Prove your gaming prowess. 
+              Earn real rewards. No gambling - just pure skill.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link href="/signup">
+                <Button 
+                  size="lg" 
+                  className="w-full sm:w-auto bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 text-lg h-12 px-8"
+                >
+                  Join Tournament
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/tournaments">
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="w-full sm:w-auto text-lg h-12 px-8"
+                >
+                  Browse Tournaments
+                </Button>
+              </Link>
+            </div>
           </div>
-        </div>
 
-        {filteredTournaments.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted">No tournaments available yet.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {filteredTournaments.map((tournament) => (
-              <div
-                key={tournament.id}
-                className="bg-card border border-border rounded-xl overflow-hidden hover:border-primary/50 transition-all"
-              >
-                <div className={`h-32 bg-gradient-to-br ${getGameGradient(tournament.gameName)} flex items-center justify-center`}>
-                  <span className="text-5xl">{getGameIcon(tournament.gameName)}</span>
-                </div>
-
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-foreground">{tournament.gameName}</h3>
-                    {getStatusBadge(tournament.status)}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 mb-3 text-sm">
-                    <div>
-                      <p className="text-muted text-xs">Entry Fee</p>
-                      <p className="text-lg font-bold text-accent">₹{tournament.entryFee}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted text-xs">Slots</p>
-                      <p className="text-lg font-bold">{tournament.joinedUsers?.length || 0}/{tournament.totalSlots}</p>
-                    </div>
-                  </div>
-
-                  {tournament.status === 'upcoming' && (
-                    <div className="mb-3 text-sm">
-                      <p className="text-muted text-xs mb-1">Starts in</p>
-                      <p className="text-primary font-medium">{formatTimeLeft(tournament.matchTime)}</p>
-                    </div>
-                  )}
-
-                  <div className="mb-3 text-sm">
-                    <p className="text-muted text-xs mb-1">Prize Pool</p>
-                    <p className="text-primary font-bold">₹{(tournament.prizeDistribution || []).reduce((sum, p) => sum + p.prize, 0).toLocaleString()}</p>
-                  </div>
-
-                  <Link
-                    href={`/tournaments/${tournament.id}`}
-                    className="block w-full py-2.5 text-center bg-primary/20 text-primary font-medium rounded-lg hover:bg-primary hover:text-white transition-colors text-sm"
-                  >
-                    View Details
-                  </Link>
-                </div>
+          {/* Stats */}
+          <div className="mt-16 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {[
+              { label: 'Active Tournaments', value: tournaments.length },
+              { label: 'Total Players', value: '10K+' },
+              { label: 'Prize Distributed', value: '₹50L+' },
+              { label: 'Success Rate', value: '99%' }
+            ].map((stat, i) => (
+              <div key={i} className="rounded-xl border bg-card/50 p-4 text-center backdrop-blur-sm">
+                <div className="text-2xl font-bold text-primary md:text-3xl">{stat.value}</div>
+                <div className="text-sm text-muted-foreground">{stat.label}</div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
+
+      {/* Featured Tournaments */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <div className="mb-10 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold md:text-3xl">Featured Tournaments</h2>
+              <p className="text-muted-foreground">Join the hottest matches happening now</p>
+            </div>
+            <Link href="/tournaments">
+              <Button variant="outline">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-80 animate-pulse rounded-xl bg-muted" />
+              ))}
+            </div>
+          ) : tournaments.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-12 text-center">
+              <Trophy className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No tournaments yet</h3>
+              <p className="text-muted-foreground">Check back soon for new matches</p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {tournaments.map((tournament) => (
+                <Card key={tournament.id} className="overflow-hidden border-border/50 transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10">
+                  <div className={`h-32 bg-gradient-to-br ${gameGradients[tournament.gameName] || gameGradients['Default']} flex items-center justify-center`}>
+                    <span className="text-6xl">{gameIcons[tournament.gameName] || gameIcons['Default']}</span>
+                  </div>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{tournament.gameName}</CardTitle>
+                      {getStatusBadge(tournament.status)}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Entry Fee</p>
+                        <p className="text-xl font-bold text-accent">₹{tournament.entryFee}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Slots</p>
+                        <p className="text-xl font-bold">{tournament.joinedUsers?.length || 0}/{tournament.totalSlots}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Prize Pool</p>
+                        <p className="font-semibold text-primary">
+                          ₹{tournament.prizeDistribution?.reduce((sum, p) => sum + p.prize, 0).toLocaleString()}
+                        </p>
+                      </div>
+                      {tournament.status === 'upcoming' && (
+                        <div className="text-right">
+                          <p className="text-muted-foreground">Starts in</p>
+                          <p className="font-medium text-primary">{formatTimeLeft(tournament.matchTime)}</p>
+                        </div>
+                      )}
+                    </div>
+                    <Link href={`/tournaments/${tournament.id}`}>
+                      <Button className="mt-4 w-full bg-gradient-to-r from-primary to-purple-600 hover:opacity-90">
+                        Join Now
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-16 md:py-24 bg-card/30">
+        <div className="container mx-auto px-4">
+          <div className="mb-10 text-center">
+            <h2 className="text-2xl font-bold md:text-3xl">How It Works</h2>
+            <p className="text-muted-foreground">Start competing in 3 simple steps</p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-3">
+            {howItWorks.map((step, i) => (
+              <div key={i} className="group relative rounded-xl border bg-card p-6 text-center transition-all hover:-translate-y-1 hover:border-primary/50">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary to-purple-600 p-3">
+                  <step.icon className="h-6 w-6 text-white" />
+                </div>
+                <div className="mt-6">
+                  <h3 className="mb-2 text-lg font-bold">{step.title}</h3>
+                  <p className="text-sm text-muted-foreground">{step.desc}</p>
+                </div>
+                {i < 2 && (
+                  <ArrowRight className="absolute -right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground md:hidden" />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Top Winners */}
+      <section className="py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <div className="mb-10">
+            <h2 className="text-2xl font-bold md:text-3xl flex items-center gap-2">
+              <Crown className="h-8 w-8 text-yellow-500" />
+              Top Winners
+            </h2>
+            <p className="text-muted-foreground">This week&apos;s champions</p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              { rank: 1, name: 'ProGamer_01', amount: '₹12,500', icon: '👑' },
+              { rank: 2, name: 'ShadowStrike', amount: '₹8,200', icon: '⚔️' },
+              { rank: 3, name: 'BattleKing', amount: '₹5,000', icon: '🎮' },
+            ].map((winner, i) => (
+              <Card key={i} className={`${i === 0 ? 'border-yellow-500/50 bg-yellow-500/5' : ''} transition-all hover:scale-[1.02]`}>
+                <CardContent className="flex items-center gap-4 p-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full ${
+                    winner.rank === 1 ? 'bg-yellow-500' : winner.rank === 2 ? 'bg-gray-400' : 'bg-orange-700'
+                  } text-2xl`}>
+                    {winner.icon}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold">{winner.name}</p>
+                    <p className="text-sm text-muted-foreground">Rank #{winner.rank}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary">{winner.amount}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 md:py-24 bg-gradient-to-r from-primary/20 via-purple-500/20 to-primary/20">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-2xl font-bold md:text-3xl">Ready to Compete?</h2>
+          <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
+            Join thousands of gamers already winning real cash. Sign up now and get bonus on your first deposit!
+          </p>
+<Link href="/signup">
+            <Button 
+              size="lg" 
+              className="mt-8 bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 text-lg h-12 px-8"
+            >
+              Create Free Account
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

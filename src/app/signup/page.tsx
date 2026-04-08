@@ -1,13 +1,16 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { useNotification } from '@/lib/notification-context';
+import { toast } from 'sonner';
+import { Trophy, Eye, EyeOff, Loader2, Gift } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 function generateReferralCode(): string {
@@ -15,32 +18,28 @@ function generateReferralCode(): string {
 }
 
 function SignupForm() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const { addNotification } = useNotification();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const ref = searchParams.get('ref');
-    if (ref) {
-      setReferralCode(ref);
-    }
-  }, [searchParams]);
+  const refCode = searchParams.get('ref');
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      addNotification('Passwords do not match', 'error');
+      toast.error('Passwords do not match');
       return;
     }
 
     if (password.length < 6) {
-      addNotification('Password must be at least 6 characters', 'error');
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
@@ -51,17 +50,36 @@ function SignupForm() {
       const user = userCredential.user;
 
       let referredBy: string | undefined;
-      let referralBonus = 0;
+      let referralBonus = 50;
 
-      if (referralCode) {
-        const usersRef = doc(db, 'users');
-        const snapshot = await getDoc(usersRef);
-        if (snapshot.exists()) {
-          const users = snapshot.data();
-          const referrer = Object.values(users).find((u: any) => u.referralCode === referralCode);
+      if (refCode || referralCode) {
+        const code = (refCode || referralCode).toUpperCase();
+        
+        const usersSnapshot = await getDoc(doc(db, 'users'));
+        if (usersSnapshot.exists()) {
+          const usersData = usersSnapshot.data();
+          const allUsers = Object.entries(usersData);
+          const referrer = allUsers.find(([_, data]: [string, any]) => data.referralCode === code);
+          
           if (referrer) {
-            referredBy = (referrer as any).id;
-            referralBonus = 50;
+            referredBy = referrer[0];
+            
+            await setDoc(doc(db, 'transactions', uuidv4()), {
+              userId: referredBy,
+              type: 'referral',
+              amount: referralBonus,
+              status: 'completed',
+              description: `Referral bonus from ${username}`,
+              createdAt: new Date().toISOString(),
+            });
+            
+            const referrerRef = doc(db, 'users', referredBy);
+            const referrerDoc = await getDoc(referrerRef);
+            if (referrerDoc.exists()) {
+              await setDoc(referrerRef, {
+                walletBalance: (referrerDoc.data().walletBalance || 0) + referralBonus
+              }, { merge: true });
+            }
           }
         }
       }
@@ -71,152 +89,151 @@ function SignupForm() {
       await setDoc(doc(db, 'users', user.uid), {
         username,
         email,
-        walletBalance: referralBonus,
+        walletBalance: referredBy ? referralBonus : 0,
         referralCode: newReferralCode,
         referredBy: referredBy || null,
+        role: 'user',
         createdAt: new Date().toISOString(),
-        isAdmin: false,
       });
 
-      if (referredBy) {
-        await setDoc(doc(db, 'transactions', uuidv4()), {
-          userId: referredBy,
-          type: 'referral',
-          amount: referralBonus,
-          status: 'completed',
-          description: `Referral bonus from ${username}`,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      addNotification('Account created successfully!', 'success');
+      toast.success('Account created successfully!');
+      router.push('/dashboard');
     } catch (error: any) {
       console.error('Signup error:', error);
-      addNotification(error.message || 'Signup failed. Please try again.', 'error');
+      toast.error(error.message || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSignup} className="space-y-5">
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Gaming Name
-        </label>
-        <input
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary"
-          placeholder="Your gaming name"
-          required
-          minLength={3}
-        />
-      </div>
+    <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-xl">
+      <CardHeader className="text-center pb-2">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-purple-600">
+          <Trophy className="h-8 w-8 text-white" />
+        </div>
+        <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
+        <CardDescription>Join the gaming revolution</CardDescription>
+      </CardHeader>
+      
+      <CardContent>
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Gaming Name</label>
+            <Input
+              type="text"
+              placeholder="Your gaming handle"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="h-11 bg-background/50"
+              required
+              minLength={3}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Email</label>
+            <Input
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="h-11 bg-background/50"
+              required
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Password</label>
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-11 bg-background/50 pr-10"
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Confirm Password</label>
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="h-11 bg-background/50"
+              required
+            />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Email Address
-        </label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary"
-          placeholder="you@example.com"
-          required
-        />
-      </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              Referral Code
+              <span className="text-xs text-muted-foreground">(Optional)</span>
+            </label>
+            <div className="relative">
+              <Gift className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Enter referral code"
+                value={refCode || referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="h-11 bg-background/50 pl-10 uppercase"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Use a referral code to get ₹50 bonus!</p>
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Password
-        </label>
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary"
-          placeholder="••••••••"
-          required
-          minLength={6}
-        />
-      </div>
+          <Button 
+            type="submit" 
+            className="w-full h-11 bg-gradient-to-r from-primary to-purple-600 hover:opacity-90"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating account...
+              </>
+            ) : (
+              'Create Account'
+            )}
+          </Button>
+        </form>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Confirm Password
-        </label>
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary"
-          placeholder="••••••••"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">
-          Referral Code <span className="text-muted">(optional)</span>
-        </label>
-        <input
-          type="text"
-          value={referralCode}
-          onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-          className="w-full px-4 py-3 bg-card border border-border rounded-lg text-foreground focus:outline-none focus:border-primary uppercase"
-          placeholder="Enter referral code"
-        />
-        <p className="text-xs text-muted mt-1">Get ₹50 bonus when you use a referral code!</p>
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-3 bg-primary text-white font-bold rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
-          <span className="flex items-center justify-center gap-2">
-            <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            Creating account...
-          </span>
-        ) : (
-          'Create Account'
-        )}
-      </button>
-    </form>
+        <div className="mt-6 text-center text-sm">
+          <span className="text-muted-foreground">Already have an account? </span>
+          <Link href="/login" className="text-primary hover:underline font-medium">
+            Sign In
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 export default function SignupPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl gaming-gradient flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-3xl">G</span>
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">Create Account</h1>
-          <p className="text-muted mt-2">Join GameArena and start competing</p>
+    <div className="min-h-screen flex items-center justify-center px-4 py-12 bg-gradient-to-b from-background via-purple-950/10 to-background">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-purple-500/10 via-transparent to-transparent" />
+      
+      <Suspense fallback={
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-
-        <Suspense fallback={
-          <div className="flex items-center justify-center py-12">
-            <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        }>
-          <SignupForm />
-        </Suspense>
-
-        <p className="text-center text-muted mt-6">
-          Already have an account?{' '}
-          <Link href="/login" className="text-primary hover:underline">
-            Sign In
-          </Link>
-        </p>
-      </div>
+      }>
+        <SignupForm />
+      </Suspense>
     </div>
   );
 }

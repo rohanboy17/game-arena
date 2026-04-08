@@ -4,13 +4,15 @@ import { createContext, useContext, useEffect, useState, useRef, ReactNode } fro
 import { User as FirebaseUser, onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { User } from '@/types';
+import { User, UserRole } from '@/types';
 
 interface AuthContextType {
   user: FirebaseUser | null;
   userData: User | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  isAdmin: boolean;
+  isManager: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +20,8 @@ const AuthContext = createContext<AuthContextType>({
   userData: null,
   loading: true,
   signOut: async () => {},
+  isAdmin: false,
+  isManager: false,
 });
 
 let cachedUser: FirebaseUser | null = null;
@@ -69,8 +73,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserData(null);
   };
 
+  const isAdmin = userData?.role === 'admin';
+  const isManager = userData?.role === 'manager';
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, signOut }}>
+    <AuthContext.Provider value={{ user, userData, loading, signOut, isAdmin, isManager }}>
       {children}
     </AuthContext.Provider>
   );

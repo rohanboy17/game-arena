@@ -1,3 +1,5 @@
+export type UserRole = 'user' | 'manager' | 'admin';
+
 export interface User {
   id: string;
   username: string;
@@ -5,8 +7,8 @@ export interface User {
   walletBalance: number;
   referralCode: string;
   referredBy?: string;
+  role: UserRole;
   createdAt: string;
-  isAdmin?: boolean;
 }
 
 export interface DepositRequest {
@@ -40,6 +42,7 @@ export interface Tournament {
   matchTime: string;
   roomId?: string;
   roomPassword?: string;
+  assignedManagerId?: string;
   status: 'upcoming' | 'live' | 'completed';
   createdAt: string;
 }
@@ -49,6 +52,8 @@ export interface PrizeDistribution {
   prize: number;
 }
 
+export type ResultStatus = 'pending' | 'manager_approved' | 'approved' | 'rejected';
+
 export interface Result {
   id: string;
   tournamentId: string;
@@ -57,14 +62,16 @@ export interface Result {
   kills: number;
   rank: number;
   screenshotURL: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: ResultStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
   createdAt: string;
 }
 
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'deposit' | 'entry' | 'winning' | 'withdrawal';
+  type: 'deposit' | 'entry' | 'winning' | 'withdrawal' | 'referral';
   amount: number;
   status: 'pending' | 'completed' | 'failed';
   description: string;
@@ -78,4 +85,12 @@ export interface AdminConfig {
   minDeposit: number;
   minWithdraw: number;
   adminEmail: string;
+}
+
+export interface LeaderboardEntry {
+  userId: string;
+  username: string;
+  totalWinnings: number;
+  tournamentsWon: number;
+  rank: number;
 }
