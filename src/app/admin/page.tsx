@@ -63,16 +63,14 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      router.push('/');
+    if (!authLoading && !loading) {
+      if (!user || !isAdmin) {
+        router.push('/');
+      } else {
+        loadData();
+      }
     }
-  }, [user, authLoading, isAdmin, router]);
-
-  useEffect(() => {
-    if (user && isAdmin) {
-      loadData();
-    }
-  }, [user, isAdmin]);
+  }, [user, authLoading, isAdmin, router, loading]);
 
   const loadData = async () => {
     try {
